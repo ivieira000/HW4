@@ -1,7 +1,9 @@
 HW4
 ================
 Author: Isabela Vieira
+
 Collaborators: Christopher Tinevra, Akimawe Kadiri, Nicole Kerrison, Mostafa Ragheb, Charles Reed & Monica Martinez-Raga
+
 Submission Date: 10/12/2020
 
 Understanding the relationship between college degrees and wages.
