@@ -352,7 +352,7 @@ example, I have this bias that getting a law degree is expensive, and
 now that I see the mean wage for that degree field I have a feeling that
 going for that is foolish.
 
-Now, let’s run a linear regression to see how it
+Now, let’s run a linear regression for a very straighfoward variable such as gender just to see how it
 works.
 
 ``` r
