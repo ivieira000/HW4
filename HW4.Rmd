@@ -1,0 +1,221 @@
+---
+title: "HW4"
+author: "Isabela Vieira"
+date: "10/11/2020"
+output: github_document
+People I collaborated with: Christopher Tinevra, Akimawe Kadiri, Nicole Kerrison,
+  Mostafa Ragheb, Charles Reed, Monica Martinez-Raga
+---
+Understanding the relationship between college degrees and wages. 
+
+First step is to determine what portion of the population I'm going to select to conduct my analysis. Instead of conducting an analysis on the correlation between degrees (HS, Bachelor, Master, etc.), I will be conducting an analysis on the correlation between the degree field and the income wage. As suggested in the lab, understanding which majors open doors to higher paying jobs is an interesting analysis to conduct, which is something that is not quite obvious to me. Given that, I want to further restrict my population to individuals who have completed at least 4 years of college, because I believe that's the minimum time to acquire a bachelor degree. 
+
+
+```{r}
+load("~/Documents/College/Fall 2020/Econometrics/acs2017_ny_data.RData")
+attach(acs2017_ny)
+
+#Since EDUC is a factor, we must convert it to a numeric variable we can use. 
+
+EDUC_f <- factor(acs2017_ny$EDUC)
+levels(EDUC_f) #In the last lab I didn't use this function, and my levels were a mess. I crosschecked this time and I have my numeric code perfectly tied to the txt codebook available for the PUMS dataset. 
+EDUC_Code <-as.numeric(EDUC_f) #Creates a column with the numeric code for the categorical data. 
+
+#Now, we are ready no insert a filter that will only select individuals with 4 & 5+ years of college. 
+#Some inviduals may enter college earlier and complete their 4 to 5 years before 25, so I'll adjust that filter. I pretty much agree with the other filters chosen by default, so I'll leave them unchaged. 
+use_varb <- (AGE >= 21) & (AGE <= 55) & (LABFORCE == 2) & (WKSWORK2 > 4) & (UHRSWORK >= 35) & (EDUC_Code >=10) & (CLASSWKR == 2)
+dat_use <- subset(acs2017_ny,use_varb)  
+attach(dat_use)
+```
+
+Now adressing the question from the lab: "Consider what variables should be in your model. What are some of the important factors that influence a person’s wage? Is there a plausible causal link from X variables to Y and not the reverse?" 
+
+For this question I'd like to bring some of the theorical stuff from the class notes. So, to understand which one of these variables have a greater correlation with income wage, I will run a covariance matrix. I won't be including variables related to education right now, because I'll do an analysis with those variables later in the homework. For now, let's just focus on age, race, gender, number of children, and marital status.   
+
+Before anything, let's create a function for normalizing the data because we'll need it. 
+```{r}
+norm_varb <- function(X_in) {
+  (X_in - min(X_in, na.rm = TRUE))/( max(X_in, na.rm = TRUE) - min(X_in, na.rm = TRUE) )
+}
+```
+
+Now, let's fix the data before running the correlation
+```{r}
+
+#Transform SEX into a numeric variable 
+SEX_f <- factor(dat_use$SEX)
+levels(SEX_f)
+dat_use$SEX_Code <-as.numeric(SEX_f)
+Sex.num <- as.numeric(SEX_f)
+
+#Do the same for these variables 
+NWage <- INCWAGE
+nsex <- dat_use$SEX_Code
+Nrace <- as.numeric(RACE)
+Nnchild<- as.numeric(NCHILD)
+nmarst <- as.numeric(MARST)
+
+#Now lets normalize our data. We need to do this because our variables have very different ranges, which may affect comparability. 
+
+Norm_Wage <- norm_varb(NWage)
+Norm_Gender <- norm_varb(nsex)
+Norm_Race <- norm_varb(Nrace)
+Norm_Children <- norm_varb(Nnchild)
+Norm_MaritalStatus <- norm_varb(nmarst)
+Norm_Age <- norm_varb(AGE)
+```
+
+```{r}
+#Get a dataframe of the variables I'm interested in seeing the correlation with our dependent variable "INCWAGE"
+df_1 <- data.frame(Norm_Wage, Norm_Gender, Norm_Race,Norm_Children, Norm_MaritalStatus, Norm_Age )
+
+#Run the correlation, use "complete.obs" to exclude NAs (Altought I'm not sure if there are any NAs, but still did it just in case)
+correlation_1 <- cor(df_1, use = "complete.obs")
+print(correlation_1)
+
+```
+
+Let's recall what correlation means. 
+Correlation Coefficient    Interpretation
+       +1                  Perfectly Correlated  
+        0                  No Relationship
+       -1                  Perfectly Correlated (Inversely)
+
+Surprisingly, the second greatest coeficient of correlation (|p|) between these variables and our dependent variable, income wage, is the marital status. In the text file, MARST has a range defined as 6 - not married at all, and 1- married. Since we see a negative correlation, it means that the greater the marital status, the lower the wage. Which could possibly mean that separated (3) divorced (4) widowned (5) and never maried (6) individuals are discriminated against. In this case maybe being single (6) also involves a younger population, which would make sense because we see a mild positive correlation between age and income wage, meaning that the older you get, probably the more experienced you get, and the higher is your wage. 
+
+However, for me that is pretty counterintuive, I'd expect married women, for example, to be discriminated against more often because of their likeability of having children. I'm glad I runned this, because I had an awful misjudgement of whatever people discriminate against. 
+
+EXTREMELY SURPRISINGLY IS THAT THE NUMBER OF CHILDREN HAS A POSITIVE CORRELATION WITH THE WAGE? I think it's worth to see how many man are in this population (dat_use) that I selected. 
+
+```{r}
+summary(dat_use$SEX)
+```
+Ok, somehow we have more females in our selected dataset? And somehow correlation is positive, I'm confused.
+
+I want to see the correlation between wage and women with children. Because in our covariance table we see that gender and wage are inversely related, meaning that the higher your gender (1 = male, 2 = female), the lower your wage. Which makes sense because women are generally paid less according to my bias and now this has been confirmed for NYC. However, why does having children increases your likeability of having a greater wage? Maybe it could be that because NY is such an expensive place to live, and having children is pretty expensive, it could be that affluent people have more children because they can afford. Another possible explanation is that couples wait until they're more mature to have children, and as we discussed before, that is confirmed by the positive correlation we see between age and wage. 
+
+For the second part of the homework, I'll be trying to see the correlation between the wage and the field of degree. Which majors yield higher wages? 
+
+First, let's the grafic illustration of the distribution of detailed degree fields.
+
+```{r}
+#Here we can see wich group of majors are the most popular!
+Major <- dat_use$DEGFIELD
+plot(Major)
+
+```
+
+```{r}
+#Now let's see how much is the degree field correlated to the income wage:
+DEGFIELD_f <- factor(dat_use$DEGFIELD)
+levels(DEGFIELD_f)
+DEGFIELD_Code <-as.numeric(DEGFIELD_f)
+
+#This line of code creates a aggregate table. We can see below the average wage by the degree field. 
+Table1 <- tapply(INCWAGE, list(DEGFIELD_f), mean )
+print(Table1)
+
+#This creates a plot with labels that allows us to visualize which degree fields yield the highest income. Enlarge to see better. 
+plot(Table1, main="INCWAGE vs. DEGFIELD",
+   xlab="DEGFIELD", ylab="WAGE", pch=18, col="blue")
+text(Table1, row.names(Table1), cex=0.6, pos=4, col="red")
+```
+
+This output allows us to see which majors yield the highest wages, which are "Physical Sciences Nuclear, Industrial Radiology, and Biological Technologies" by far (as I would expect), "Mathematics and Statistics", "Social Sciences" (not on my bingo card), and "Egineering". It would be very useful to see the average cost of education for each major. For example, I have this bias that getting a law degree is expensive, and now that I see the mean wage for that degree field I have a feeling that going for that is foolish. 
+
+
+Now, let's run a linear regression to see how it works. 
+
+```{r}
+#I'll first run a simple model with only one variable to see if it returns something similar to our correlation results. 
+model_temp1 <- lm(INCWAGE ~ SEX, data = dat_use)
+summary(model_temp1)$coef
+plot(model_temp1)
+
+require(stargazer)
+stargazer(model_temp1, type = "text")
+#Stargazer makes it easier to interpret the P-value.
+```
+We see that the females earn $36,326 less than males on average. This confirms the results we got from the covariance table, in which gender and income wage are inversely correlated (if 2 - female, lower wage). We know that often when the p-value is less than 0.05 (taking the usual 95% confidence interval) we conclude that we have enought evidence to reject the null hypothesis (that there is no relationship between the two variables.) The stargazer function offers us a summary that shows the p-value for this regression as beeing less than 0.01, which lead us to conclude that there is a statistically significant difference between the income wage of males and females. 
+
+Now let's run that for the DEGFIELD and see what happens:
+
+```{r}
+model_temp2 <- lm(INCWAGE ~ DEGFIELD, data = dat_use)
+summary(model_temp2)$coef
+plot(model_temp2)
+
+require(stargazer)
+stargazer(model_temp2, type = "text")
+
+```
+For the degree field we see that R took "Agriculture" as the intercept and the other 36 levels as dummy variables. According to our aggregate table, the average salary for Agriculture majors is the same as the intercept estimate value returned by the linear model. So we know this is working correctly. Now, since there are 37 different "options" in this regression (there are 37 levels within the DEGFIELD factor), it's a little harder for me to interpret the results. Some of the majors present a statistically significant difference from the intercept (agriculture), while others don't (See the * in each of the levels). I don't really understand what does that mean. 
+
+I have never heard of F-statistic before, but after looking it up I found this "The F-statistic is simply a ratio of two variances. Variances are a measure of dispersion, or how far the data are scattered from the mean. Larger values represent greater dispersion."
+So I guess that for this regression R took the Agriculture salary as the "mean" for the DEGFIELD factor. So I guess that each major differs from the agricultural wages by a certain amount, and the F-test is a summary of all those differences. Given the F-statistic  18.935*** (df = 36; 22139) we got from this regression, we can say that there is a statistically significant relationship between the degree field and the income wage of an individual, since *** means P< 0.01. I think this is an easier way to find and interpret relationships between variables, because when I saw the correlation between DEGFIELD and INCWAGE I thought it was not thar significant:
+
+```{r}
+correlation_3 <- cor(DEGFIELD_Code, INCWAGE, use = "complete.obs")
+print(correlation_3)
+#But also the function cor can only support numerical variables, and since the degree field is not an ordered variable it wouldn't make much sence to run this as numeric. It doesn't really tell me anything. So it's pretty obvious that lm works much better to work with categorical data. 
+```
+
+Ok I really don't know what's going on with the graphs though. 
+Now let's try to plot a linear model in the way Kevin wants:
+
+
+```{r}
+# subset in order to plot... I don't understand why we do that. 
+NNobs <- length(INCWAGE)
+set.seed(12345) # just so you can replicate and get same "random" choices
+graph_obs <- (runif(NNobs) < 0.1) # "so something like just 1/10 as many obs" ## Why do we do this?
+dat_graph <-subset(dat_use,graph_obs)  
+
+plot(INCWAGE ~ SEX, pch = 16, col = rgb(0.5, 0.5, 0.5, alpha = 0.2), data = dat_graph)
+# ^^ that looks like crap since Wages are soooooooo skew!  So try to find some sensible ylim = c(0, ??)
+plot(INCWAGE ~ SEX, pch = 16, col = rgb(0.5, 0.5, 0.5, alpha = 0.2), ylim = c(0,150000), data = dat_graph) #WHAT IS YLIM???
+# discus what you see in this plot: Ok in this plot we can see the same info that I've stated before, but here it's easier to visualize how the income wage between men and women differ by mean, max, and min, which is cool. I really have no clue how we could plot DEGFIELD using this code. 
+# I understand the the Jitter function was supposed to remove any "noise" from the data, but it really only works with numerical values.
+
+plot(INCWAGE ~ DEGFIELD, pch = 16, col = rgb(0.5, 0.5, 0.5, alpha = 0.2), ylim = c(0,150000), data = dat_graph) #Really terrible visuals. I have no idea how to interpret this.  
+
+
+
+```
+
+
+Let's try something completely different for the last part of the lab. Let's try to see how the number of children a woman has can affect the total income of that woman.
+
+```{r}
+
+model_temp3 <- lm(INCTOT ~ NCHILD, data = dat_use)
+summary(model_temp3)$coef
+plot(model_temp3)
+
+require(stargazer)
+stargazer(model_temp3, type = "text")
+
+# subset in order to plot...
+NNobs <- length(INCTOT)
+set.seed(12345) # just so you can replicate and get same "random" choices
+graph_obs <- (runif(NNobs) < 0.1) # so something like just 1/10 as many obs
+dat_graph <-subset(dat_use,graph_obs)  
+
+#Let's try to do something else with this. Let's try to see how the number of children affect the total income for example. 
+
+plot(INCTOT ~ jitter(NCHILD, factor = 2), pch = 16, col = rgb(0.5, 0.5, 0.5, alpha = 0.2), data = dat_graph)
+# ^^ that looks like crap since Wages are soooooooo skew!  So try to find some sensible ylim = c(0, ??)
+plot(INCTOT ~ jitter(NCHILD, factor = 2), pch = 16, col = rgb(0.5, 0.5, 0.5, alpha = 0.2), ylim = c(0,150000), data = dat_graph)
+# discus what you see in this plot
+
+# Let's see if we can predict the total income given the number of child a woman has 
+to_be_predicted3 <- data.frame(INCTOT, female = 1)
+to_be_predicted3$yhat <- predict(model_temp3, newdata = to_be_predicted3)
+
+lines(yhat ~ NCHILD, data = to_be_predicted3)
+```
+On the graph, we see that there is a statistically significant relationship between the number of children and the total income of a woman (since p-value < 0.01). Again, this is highly surprising to me, but we have discussed that earlier in the lab. Maybe the higher the income for a person, the greater the likeability that person will have more children just because they can afford it. This completely proves wrong the bias that poor people have more children. We do see some RARE cases (the very outliers in the graph) of women that have between 5 and 8 children with an income that is below 100,000. Nevertheless, having 5-8 kids nowadays is rare for other reasons. I'm really intrigued by this actually. I remember studying in economic development that women with higher levels of education, and thus higher wages, would avoid having more children because of a higher opportunity cost. It's funny to see that the data shows something different. Nevertheless, NYS is a very developed and somewhat rich area if we are to compare it to developing countries in which a great part of the population works in agriculture and do see having children as a means to split labor. 
+
+```{r}
+detach(dat_use)
+```
